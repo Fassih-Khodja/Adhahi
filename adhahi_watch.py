@@ -27,11 +27,23 @@ def fetch_items():
     last_error = None
     for attempt in range(1, MAX_RETRIES + 1):
         try:
+            headers = {
+                "Accept": "application/json,text/plain,*/*",
+                "Accept-Language": "en-US,en;q=0.9,ar;q=0.8,fr;q=0.7",
+                "Referer": "https://adhahi.dz/",
+                "User-Agent": (
+                    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                    "(KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
+                ),
+            }
             response = requests.get(
                 API_URL,
-                headers={"Accept": "application/json"},
+                headers=headers,
                 timeout=(CONNECT_TIMEOUT, READ_TIMEOUT),
             )
+            if "application/json" not in response.headers.get("Content-Type", ""):
+                snippet = response.text[:400].replace("\n", " ").strip()
+                print("Non-JSON response (possible block page):", snippet)
             response.raise_for_status()
             return response.json()
         except requests.RequestException as exc:
@@ -79,19 +91,20 @@ def diff_state(old_state, new_state):
         new_item = new_state.get(code)
 
         if old_item is None:
-            changes.append(f"+ {code} {new_item['fr']} available={new_item['available']}")
+            if new_item.get("available"):
+                changes.append(f"+ {code} {new_item['fr']} available=True")
             continue
         if new_item is None:
-            changes.append(f"- {code} {old_item['fr']} removed")
             continue
 
         if old_item.get("available") != new_item.get("available"):
-            changes.append(
-                f"* {code} {new_item['fr']} {old_item['available']} -> {new_item['available']}"
-            )
+            if new_item.get("available"):
+                changes.append(f"* {code} {new_item['fr']} False -> True")
             continue
 
-        if old_item.get("fr") != new_item.get("fr") or old_item.get("ar") != new_item.get("ar"):
+        if new_item.get("available") and (
+            old_item.get("fr") != new_item.get("fr") or old_item.get("ar") != new_item.get("ar")
+        ):
             changes.append(f"~ {code} name changed")
 
     return changes
@@ -115,10 +128,18 @@ def main():
     new_state = normalize(items)
     old_state = load_state()
 
+    available = [
+        f"{code} {item.get('fr', '')}".strip()
+        for code, item in sorted(new_state.items())
+        if item.get("available")
+    ]
+
     changes = diff_state(old_state, new_state)
     if changes:
         message = "Wilaya availability changed:\n" + "\n".join(changes[:200])
         send_telegram(message)
+    elif not available:
+        send_telegram("No wilaya available right now.")
 
     save_state(new_state)
 
