@@ -4,10 +4,14 @@ from pathlib import Path
 
 import requests
 
-API_URL = os.getenv(
-    "ADHAHI_WILAYAS_URL",
-    "https://adhahi.dz/api/v1/public/wilaya-quotas",
-)
+def _get_api_url():
+    value = os.getenv("ADHAHI_WILAYAS_URL", "").strip()
+    if not value:
+        return "https://adhahi.dz/api/v1/public/wilaya-quotas"
+    return value
+
+
+API_URL = _get_api_url()
 
 DEFAULT_STATE_DIR = Path(__file__).resolve().parent / "state"
 STATE_DIR = Path(os.getenv("ADHAHI_STATE_DIR", str(DEFAULT_STATE_DIR)))
