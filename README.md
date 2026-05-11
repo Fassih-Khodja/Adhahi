@@ -1,4 +1,5 @@
-I missed the first registration period for odhiya, and now it is very difficult to find one. I have to check the website constantly to see if any have been added, and that is a lot. That is why I created this bot.
+I missed the first registration period for odhiya, and now it is very difficult to find one so I have to check the website constantly to see if any have been added, and that is a lot.
+That is why I created this bot.
 
 Adhahi wilaya watcher
 
@@ -13,7 +14,7 @@ Setup
 2) Set environment variables
 
    export TG_BOT_TOKEN="YOUR_BOT_TOKEN"
-   export TG_CHAT_ID="1437177618"
+   export TG_CHAT_ID="YOUR_CHAT_ID"
 
    # Optional override:
    export ADHAHI_WILAYAS_URL="https://adhahi.dz/api/v1/public/wilaya-quotas"
