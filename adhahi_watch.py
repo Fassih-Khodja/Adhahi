@@ -1,5 +1,6 @@
 import json
 import os
+import time
 from pathlib import Path
 
 import requests
@@ -12,6 +13,10 @@ def _get_api_url():
 
 
 API_URL = _get_api_url()
+MAX_RETRIES = int(os.getenv("ADHAHI_MAX_RETRIES", "3"))
+BACKOFF_SECONDS = float(os.getenv("ADHAHI_BACKOFF_SECONDS", "2"))
+CONNECT_TIMEOUT = float(os.getenv("ADHAHI_CONNECT_TIMEOUT", "10"))
+READ_TIMEOUT = float(os.getenv("ADHAHI_READ_TIMEOUT", "40"))
 
 DEFAULT_STATE_DIR = Path(__file__).resolve().parent / "state"
 STATE_DIR = Path(os.getenv("ADHAHI_STATE_DIR", str(DEFAULT_STATE_DIR)))
@@ -19,9 +24,24 @@ STATE_PATH = STATE_DIR / "wilaya_state.json"
 
 
 def fetch_items():
-    response = requests.get(API_URL, headers={"Accept": "application/json"}, timeout=20)
-    response.raise_for_status()
-    return response.json()
+    last_error = None
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            response = requests.get(
+                API_URL,
+                headers={"Accept": "application/json"},
+                timeout=(CONNECT_TIMEOUT, READ_TIMEOUT),
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as exc:
+            last_error = exc
+            print(f"Fetch failed (attempt {attempt}/{MAX_RETRIES}): {exc}")
+            if attempt < MAX_RETRIES:
+                time.sleep(BACKOFF_SECONDS * attempt)
+
+    print(f"Fetch failed after {MAX_RETRIES} attempts: {last_error}")
+    return None
 
 
 def normalize(items):
@@ -90,6 +110,8 @@ def send_telegram(message):
 
 def main():
     items = fetch_items()
+    if items is None:
+        return
     new_state = normalize(items)
     old_state = load_state()
 
